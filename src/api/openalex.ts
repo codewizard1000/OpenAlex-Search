@@ -114,3 +114,56 @@ function escapeXml(unsafe: string): string {
     }
   });
 }
+
+export function exportToCSV(works: OpenAlexWork[]): string {
+  const headers = [
+    'Title',
+    'Authors',
+    'Author Institutions',
+    'Article Type',
+    'Publication Date',
+    'Venue',
+    'DOI',
+    'OpenAlex ID',
+    'Cited By Count',
+    'Open Access',
+    'OA Status',
+    'Abstract'
+  ];
+
+  const rows = works.map(work => {
+    const authors = work.authorships?.map(a => a.author.display_name).join('; ') || '';
+    
+    const institutions = work.authorships?.flatMap(a => 
+      a.institutions?.map(i => i.display_name) || []
+    ).filter((v, i, a) => a.indexOf(v) === i).join('; ') || '';
+
+    return [
+      escapeCsv(work.title),
+      escapeCsv(authors),
+      escapeCsv(institutions),
+      escapeCsv(work.type),
+      escapeCsv(work.publication_date),
+      escapeCsv(work.primary_location?.source?.display_name || ''),
+      escapeCsv(work.doi || ''),
+      escapeCsv(work.id),
+      work.cited_by_count.toString(),
+      work.open_access?.is_oa ? 'Yes' : 'No',
+      escapeCsv(work.open_access?.oa_status || ''),
+      escapeCsv(work.abstract || '')
+    ];
+  });
+
+  return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+}
+
+function escapeCsv(value: string): string {
+  if (!value) return '';
+  // Escape quotes by doubling them
+  const escaped = value.replace(/"/g, '""');
+  // Wrap in quotes if contains comma, newline, or quote
+  if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
+    return `"${escaped}"`;
+  }
+  return escaped;
+}
