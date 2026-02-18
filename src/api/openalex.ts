@@ -1,20 +1,23 @@
-import axios from 'axios';
 import type { OpenAlexSearchResponse, OpenAlexWork } from '../types/openalex';
 
 const API_BASE_URL = 'https://api.openalex.org';
 const API_KEY = 'OcbbeOpcd7cjhp4krlF4sM';
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'User-Agent': 'OpenAlexSearch/1.0 (mailto:ed@openclaw.ai)',
-    'Accept': 'application/json',
-  },
-  params: {
-    api_key: API_KEY,
-    mailto: 'ed@openclaw.ai',
-  },
-});
+function buildUrl(endpoint: string, params: Record<string, string | number | undefined>): string {
+  const url = new URL(API_BASE_URL + endpoint);
+  
+  // Always add API key and mailto for better rate limits
+  url.searchParams.append('api_key', API_KEY);
+  url.searchParams.append('mailto', 'ed@openclaw.ai');
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      url.searchParams.append(key, String(value));
+    }
+  });
+  
+  return url.toString();
+}
 
 export interface SearchParams {
   query?: string;
@@ -45,38 +48,77 @@ export async function searchWorks(params: SearchParams): Promise<OpenAlexSearchR
     filters.push(`concepts.id:${topicFilter}`);
   }
 
-  const requestParams: Record<string, string | number | undefined> = {
+  const queryParams: Record<string, string | number> = {
     page: params.page || 1,
     per_page: params.perPage || 25,
     sort: 'relevance_score:desc',
   };
 
   if (params.query && params.query.trim()) {
-    requestParams.search = params.query.trim();
+    queryParams.search = params.query.trim();
   }
 
   if (filters.length > 0) {
-    requestParams.filter = filters.join(',');
+    queryParams.filter = filters.join(',');
   }
 
-  const response = await apiClient.get('/works', { params: requestParams });
-  return response.data;
+  const url = buildUrl('/works', queryParams);
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'OpenAlexSearch/1.0 (mailto:ed@openclaw.ai)',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 
 export async function getWork(id: string): Promise<OpenAlexWork> {
-  const response = await apiClient.get(`/works/${id}`);
-  return response.data;
+  const url = buildUrl(`/works/${id}`, {});
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'OpenAlexSearch/1.0 (mailto:ed@openclaw.ai)',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  return response.json();
 }
 
 export async function searchTopics(query: string): Promise<Array<{ id: string; display_name: string }>> {
-  const response = await apiClient.get('/concepts', {
-    params: {
-      search: query,
-      per_page: 10,
-    },
+  const url = buildUrl('/concepts', {
+    search: query,
+    per_page: 10,
   });
   
-  return response.data.results.map((concept: { id: string; display_name: string }) => ({
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'OpenAlexSearch/1.0 (mailto:ed@openclaw.ai)',
+    },
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return data.results.map((concept: { id: string; display_name: string }) => ({
     id: concept.id,
     display_name: concept.display_name,
   }));
@@ -166,9 +208,7 @@ export function exportToCSV(works: OpenAlexWork[]): string {
 
 function escapeCsv(value: string): string {
   if (!value) return '';
-  // Escape quotes by doubling them
   const escaped = value.replace(/"/g, '""');
-  // Wrap in quotes if contains comma, newline, or quote
   if (escaped.includes(',') || escaped.includes('\n') || escaped.includes('"')) {
     return `"${escaped}"`;
   }
