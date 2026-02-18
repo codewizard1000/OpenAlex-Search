@@ -1,13 +1,11 @@
 import type { OpenAlexSearchResponse, OpenAlexWork } from '../types/openalex';
 
 const API_BASE_URL = 'https://api.openalex.org';
-const API_KEY = 'OcbbeOpcd7cjhp4krlF4sM';
 
 function buildUrl(endpoint: string, params: Record<string, string | number | undefined>): string {
   const url = new URL(API_BASE_URL + endpoint);
   
-  // Always add API key and mailto for better rate limits
-  url.searchParams.append('api_key', API_KEY);
+  // Add mailto for polite pool (better rate limits)
   url.searchParams.append('mailto', 'ed@openclaw.ai');
   
   Object.entries(params).forEach(([key, value]) => {
