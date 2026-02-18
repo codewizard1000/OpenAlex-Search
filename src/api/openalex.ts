@@ -8,9 +8,11 @@ const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'User-Agent': 'OpenAlexSearch/1.0 (mailto:ed@openclaw.ai)',
+    'Accept': 'application/json',
   },
   params: {
     api_key: API_KEY,
+    mailto: 'ed@openclaw.ai',
   },
 });
 
@@ -26,33 +28,38 @@ export interface SearchParams {
 
 export async function searchWorks(params: SearchParams): Promise<OpenAlexSearchResponse> {
   const filters: string[] = [];
-  
+
   if (params.fromDate || params.toDate) {
     const from = params.fromDate || '*';
     const to = params.toDate || '*';
     filters.push(`from_publication_date:${from},to_publication_date:${to}`);
   }
-  
+
   if (params.documentTypes && params.documentTypes.length > 0) {
     const typeFilter = params.documentTypes.join('|');
     filters.push(`type:${typeFilter}`);
   }
-  
+
   if (params.topics && params.topics.length > 0) {
     const topicFilter = params.topics.join('|');
     filters.push(`concepts.id:${topicFilter}`);
   }
 
-  const response = await apiClient.get('/works', {
-    params: {
-      search: params.query || undefined,
-      filter: filters.length > 0 ? filters.join(',') : undefined,
-      page: params.page || 1,
-      per_page: params.perPage || 25,
-      sort: 'relevance_score:desc',
-    },
-  });
+  const requestParams: Record<string, string | number | undefined> = {
+    page: params.page || 1,
+    per_page: params.perPage || 25,
+    sort: 'relevance_score:desc',
+  };
 
+  if (params.query && params.query.trim()) {
+    requestParams.search = params.query.trim();
+  }
+
+  if (filters.length > 0) {
+    requestParams.filter = filters.join(',');
+  }
+
+  const response = await apiClient.get('/works', { params: requestParams });
   return response.data;
 }
 

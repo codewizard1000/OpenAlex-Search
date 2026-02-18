@@ -33,9 +33,10 @@ function App() {
       setWorks(response.results);
       setTotalCount(response.meta.count);
       setCurrentPage(page);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Search failed:', err);
-      setError('Failed to fetch results. Please try again.');
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to fetch results';
+      setError(`Error: ${errorMessage}. Please try again.`);
       setWorks([]);
       setTotalCount(0);
     } finally {
