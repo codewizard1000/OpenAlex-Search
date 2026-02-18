@@ -62,17 +62,25 @@ export async function searchWorks(params: SearchParams): Promise<OpenAlexSearchR
 
   const url = buildUrl('/works', queryParams);
   
+  console.log('Fetching URL:', url);
+  
   const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Accept': 'application/json',
-      'User-Agent': 'OpenAlexSearch/1.0 (mailto:ed@openclaw.ai)',
     },
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
+    } catch {
+      // If JSON parsing fails, use status text
+    }
+    console.error('API Error:', errorMessage);
+    throw new Error(errorMessage);
   }
 
   return response.json();
